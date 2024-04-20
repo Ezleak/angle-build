@@ -8,7 +8,7 @@ on:
 
 jobs:
   build:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout git repo
@@ -39,16 +39,16 @@ jobs:
           mkdir artifact
           cp -r include artifact/include
           mkdir artifact/bin
-          cp out/Release/libEGL.dll artifact/bin
-          cp out/Release/libGLESv2.dll artifact/bin
+          cp out/Release/libEGL.so artifact/bin
+          cp out/Release/libGLESv2.so artifact/bin
           mkdir artifact/lib
-          cp out/Release/libEGL.dll.lib artifact/lib
-          cp out/Release/libGLESv2.dll.lib artifact/lib
+          cp out/Release/libEGL.so.lib artifact/lib
+          cp out/Release/libGLESv2.so.lib artifact/lib
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v3
         with:
-          name: angle-win64
+          name: angle
           path: angle/artifact/*
 
   release:
@@ -83,7 +83,7 @@ jobs:
         run: |
           ls -R
           echo "${{ steps.create-git-tag.outputs.COMMIT }}" > angle-win64/COMMIT
-          tar -czvf angle-win64.tar.gz angle-win64/*
+          tar -czvf angle-linux64.tar.gz angle-linux64/*
 
       - name: Create release
         env:
