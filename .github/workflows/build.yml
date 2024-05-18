@@ -16,78 +16,19 @@ jobs:
         with:
           submodules: true
 
-      - name: Install depot_tools
-        run: |
-          git clone https://chromium.googlesource.com/chromium/tools/depot_tools.git "$HOME\depot_tools"
-
       - name: Build angle
-        env:
-          DEPOT_TOOLS_WIN_TOOLCHAIN: "0"
         run: |
-          $env:PATH="$HOME\depot_tools;$env:PATH"
+          mkdir -p build/linux/debian_bullseye_i386-sysroot
+          git clone --depth 1 https://chromium.googlesource.com/chromium/tools/depot_tools.git
+          export PATH=`pwd`/depot_tools:$PATH
+          echo $PATH
           cd angle
-
-          cp ../.gclient .
-          gclient sync -fD
-
-          mkdir out/Release
-          cp ../args.gn out/Release
-          gn gen out/Release
-
-          ninja -C out/Release libEGL libGLESv2
-
-          mkdir artifact
-          cp -r include artifact/include
-          mkdir artifact/bin
-          cp out/Release/libEGL.so artifact/bin
-          cp out/Release/libGLESv2.so artifact/bin
-          mkdir artifact/lib
-          cp out/Release/libEGL.so.lib artifact/lib
-          cp out/Release/libGLESv2.so.lib artifact/lib
-
+          python scripts/bootstrap.py
+          gclient sync
+          gn gen out/Android-${{matrix.arch}}
+          autoninja -C out/Android-${{matrix.arch}}
       - name: Upload artifacts
         uses: actions/upload-artifact@v3
         with:
           name: angle
-          path: angle/artifact/*
-
-  release:
-    runs-on: ubuntu-20.04
-    needs: build
-    if: success() && github.event_name == 'push' && github.ref == 'refs/heads/main'
-    steps:
-      - name: Checkout git repo
-        uses: actions/checkout@v2
-        with:
-          submodules: true
-          token: ${{ secrets.GH_TOKEN }}
-
-      - name: Setup git
-        run: |
-          git config user.name "${GITHUB_ACTOR}"
-          git config user.email "${GITHUB_ACTOR}@users.noreply.github.com"
-
-      - name: Create git tag
-        id: create-git-tag
-        run: |
-          tag="build-$(date -u '+%Y-%m-%d-%H-%M')"
-          git tag $tag
-          git push origin $tag
-          echo "::set-output name=TAG::$tag"
-          echo "::set-output name=COMMIT::$(git --git-dir angle/.git rev-parse HEAD)"
-
-      - name: Download artifacts
-        uses: actions/download-artifact@v3
-
-      - name: Prepare artifacts
-        run: |
-          ls -R
-          echo "${{ steps.create-git-tag.outputs.COMMIT }}" > angle-win64/COMMIT
-          tar -czvf angle-linux64.tar.gz angle-linux64/*
-
-      - name: Create release
-        env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
-        run: |
-          gh release create ${{ steps.create-git-tag.outputs.TAG }} angle-*.tar.gz \
-            -n "google/angle@${{ steps.create-git-tag.outputs.COMMIT }}"
+          path: angle/out
